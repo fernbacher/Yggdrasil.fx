@@ -1,0 +1,46 @@
+---
+title: "Yggdrasil.fx v1.0 — Initial Release"
+date: "2025-06-28"
+excerpt: "The first public release of the Yggdrasil ReShade shader suite. Twelve shaders, cross-platform support, and a fully documented pipeline."
+---
+
+# Yggdrasil.fx v1.0 — Initial Release
+
+After months of development and testing across Vulkan, D3D9, and Proton, **Yggdrasil.fx v1.0** is now public.
+
+## What's Included
+
+The suite ships with **12 shaders** covering the full post-processing pipeline:
+
+- **Deband** — Perceptual debanding with randomised angular sampling
+- **EdgeAA Temporal** — Edge-directed temporal anti-aliasing with debug modes
+- **SSAO** — GTAO-inspired ambient occlusion
+- **Color** — Perceptual colour grading in Oklab space
+- **LocalMean** — Shared multi-scale blur pre-pass
+- **Atmos** — Atmospheric separation and dehaze
+- **Clarity** — Mid-frequency local contrast enhancement
+- **Sharp** — Adaptive sharpening with halo suppression
+- **Tonemap** — AgX-inspired SDR display transform
+- **Halation** — Filmic highlight bleed
+- **FilmGrain** — Triangular dither with luma-weighted envelope
+- **LUT** — 3D LUT applier with trilinear interpolation
+
+## Platform Support
+
+Tested and verified on:
+
+- **Linux** via Proton (Vulkan)
+- **Windows** (Vulkan and D3D9)
+- ReShade 5.8 and later
+
+## Load Order Matters
+
+Shaders execute sequentially. Follow the [recommended load order](/docs) for correct pipeline behaviour — debanding first, detail shaders in the middle, finish effects last.
+
+## What's Next
+
+Future releases will focus on performance optimizations, additional debug visualizations for EdgeAA Temporal, and DX10/11/12 support.
+
+---
+
+Browse the [source code on GitHub](https://github.com/fernbacher/Yggdrasil.fx) or check the [documentation](/docs) for per-shader details.

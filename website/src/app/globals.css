@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+/* ── Yggdrasil Design Tokens ── */
+:root {
+  --bg: #030506;
+  --surface: #080b10;
+  --text: #e8edf6;
+  --text-dim: #8aa4c8;
+  --text-mute: #4a6a8a;
+  --accent: #5b8cff;
+  --accent-glow: rgba(91, 140, 255, 0.15);
+  --accent-2: #7a6aff;
+  --line: rgba(255, 255, 255, 0.05);
+  --line-hover: rgba(91, 140, 255, 0.3);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans);
+}
+
+@theme inline {
+  --color-ygg-bg: var(--bg);
+  --color-ygg-surface: var(--surface);
+  --color-ygg-text: var(--text);
+  --color-ygg-text-dim: var(--text-dim);
+  --color-ygg-text-mute: var(--text-mute);
+  --color-ygg-accent: var(--accent);
+  --color-ygg-accent-2: var(--accent-2);
+  --color-ygg-line: var(--line);
+  --color-ygg-green: #4cff4c;
+  --color-ygg-warn: #ffc878;
+  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans);
+}
+
+/* ── Base ── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── Noise Overlay ── */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Grid Background ── */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ── Scroll Progress Bar ── */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  z-index: 1000;
+  transition: width 0.1s linear;
+}
+
+/* ── Custom Cursor ── */
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10001;
+  transform: translate(-50%, -50%);
+}
+
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+}
+
+.cursor-ring {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--text-dim);
+  transition: width 0.3s, height 0.3s, border-color 0.3s, background 0.3s;
+}
+
+.cursor-ring.hover {
+  width: 60px;
+  height: 60px;
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* ── Scanline (reusable) ── */
+@keyframes scanLine {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+/* ── Pulse ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Blink ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Term Line Appear ── */
+@keyframes termAppear {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Reveal on scroll ── */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-animate {
+  view-timeline-name: --reveal;
+  animation: revealUp 1s var(--ease) forwards;
+  animation-timeline: --reveal;
+  animation-range: entry 0% entry 20%;
+}
+
+/* Fallback for browsers without animation-timeline support */
+@supports not (animation-timeline: view()) {
+  .reveal-animate {
+    animation: none;
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  .reveal-animate.visible {
+    animation: revealUp 1s var(--ease) forwards;
+  }
+}
+
+/* ── Hero Background Pulse ── */
+@keyframes heroPulse {
+  0%, 100% { opacity: 0.18; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.35; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+/* Staggered second pulse layer */
+.animate-\[heroPulse_8s_ease-in-out_infinite_2s\] {
+  animation: heroPulse 8s ease-in-out 2s infinite;
+}
+
+/* ── Multi-Stage Tree Animation ── */
+/* All tree path groups start hidden */
+.tree-roots path,
+.tree-trunk path,
+.tree-branches-1 path,
+.tree-branches-2 path,
+.tree-branches-3 path {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+}
+
+@keyframes drawStage {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes nodeGlow {
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { opacity: 0.9; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Continuous subtle pulse on nodes after glow-in */
+.tree-node {
+  transition: opacity 0.6s ease;
+}
+body.loaded .tree-node {
+  animation: nodePulse 3s ease-in-out infinite;
+}
+@keyframes nodePulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Rune marks glow-in */
+.tree-rune {
+  transition: opacity 0.6s ease;
+}
+
+/* ── Interactive: magnetic buttons ── */
+.magnetic-btn {
+  transition: transform 0.2s ease;
+}
+
+/* ── Touch device overrides ── */
+@media (pointer: coarse) {
+  .cursor-dot,
+  .cursor-ring {
+    display: none;
+  }
+}
