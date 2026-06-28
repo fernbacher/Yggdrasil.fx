@@ -3,8 +3,11 @@
 texture2D YggLocalMeanTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = RGBA8; };
 sampler2D YggLocalMeanSampler { Texture = YggLocalMeanTex; MinFilter = LINEAR; MagFilter = LINEAR; AddressU = CLAMP; AddressV = CLAMP; };
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggSharp — Adaptive Detail Sharpening
+//  YggSharp -- Adaptive Detail Sharpening
 // =============================================================================
 
 uniform float SharpStrength <
@@ -82,7 +85,7 @@ uniform bool LumaOnly <
     ui_type = "checkbox";
     ui_label = "Luma-Only Sharpen";
     ui_tooltip =
-        "Applies sharpening via multiplicative luma scale — preserves channel ratios exactly.\n"
+        "Applies sharpening via multiplicative luma scale -- preserves channel ratios exactly.\n"
         "No hue shift, no color fringing. Recommended on.";
 > = true;
 
@@ -140,7 +143,7 @@ float4 PS_YggSharp(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (EnableAdaptiveSharpness)
     {
-        sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -197,8 +200,8 @@ float4 PS_YggSharp(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
         float srcL = YggLuma(src);
         float shpL = YggLuma(sharp);
 
-        // FIX: multiplicative luma scale — preserves channel ratios exactly.
-        // src * (shpL / srcL) scales all channels equally → no hue shift.
+        // FIX: multiplicative luma scale -- preserves channel ratios exactly.
+        // src * (shpL / srcL) scales all channels equally -> no hue shift.
         // Old additive method (src + (shpL-srcL).xxx) changed channel ratios.
         float scale = shpL / max(srcL, YGG_EPS);
         sharp = src * scale;
@@ -208,6 +211,8 @@ float4 PS_YggSharp(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     }
 
     // Local contrast assist
+    // Local contrast assist -- operates in sRGB space (consistent with LocalMean
+    // texture which is also computed from sRGB backbuffer values)
     float3 localContrastColor = src + (src - blurLarge) * localLocalContrast;
     float  localContrastMask  = saturate(YggLocalContrastMask5Tap(ReShade::BackBuffer, uv, px * ContrastRadius) * 1.65);
     float  srcLuma            = YggLuma(src);

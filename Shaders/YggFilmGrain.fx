@@ -43,9 +43,9 @@ float4 PS_YggFilmGrain(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targ
 {
     float3 src  = tex2D(ReShade::BackBuffer, uv).rgb;
     float  luma = YggLuma(src);
-    float2 px   = pos.xy / GrainSize;
+    float2 pixelCoord = pos.xy / GrainSize;
 
-    // Luminance-weighted grain envelope — peaks in midtones, fades at extremes
+    // Luminance-weighted grain envelope -- peaks in midtones, fades at extremes
     // Real film: grain is a silver halide process, most visible at medium exposure
     float midtoneMask = 1.0 - abs(luma * 2.0 - 1.0);                     // peaks at luma=0.5
     float shadowMask  = lerp(ShadowGrain,   1.0, smoothstep(0.0, 0.35, luma));
@@ -56,22 +56,22 @@ float4 PS_YggFilmGrain(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targ
 
     // Triangular noise (two uniform samples summed = triangle distribution)
     // Triangle distribution matches silver halide grain statistics better than uniform
-    float n1 = YggHash12(px + float2(frameOff, 0.0));
-    float n2 = YggHash12(px + float2(0.0, frameOff + 3.7));
+    float n1 = YggHash12(pixelCoord + float2(frameOff, 0.0));
+    float n2 = YggHash12(pixelCoord + float2(0.0, frameOff + 3.7));
     float grain = (n1 + n2 - 1.0) * GrainStrength * envelope;
 
     float3 result;
     if (ChromaGrain)
     {
-        float n3 = YggHash12(px + float2(frameOff + 7.3, frameOff + 2.1));
-        float n4 = YggHash12(px + float2(frameOff + 1.9, frameOff + 8.6));
-        float n5 = YggHash12(px + float2(frameOff + 5.5, frameOff + 4.4));
-        float n6 = YggHash12(px + float2(frameOff + 9.1, frameOff + 6.2));
+        float n3 = YggHash12(pixelCoord + float2(frameOff + 7.3, frameOff + 2.1));
+        float n4 = YggHash12(pixelCoord + float2(frameOff + 1.9, frameOff + 8.6));
+        float n5 = YggHash12(pixelCoord + float2(frameOff + 5.5, frameOff + 4.4));
+        float n6 = YggHash12(pixelCoord + float2(frameOff + 9.1, frameOff + 6.2));
         float gr = (n3 + n4 - 1.0) * GrainStrength * envelope * 0.55;
         float gg = (n5 + n6 - 1.0) * GrainStrength * envelope * 0.55;
         // B channel gets slightly more chroma grain (film blue layer is grainier)
-        float n7 = YggHash12(px + float2(frameOff + 3.3, frameOff + 7.7));
-        float n8 = YggHash12(px + float2(frameOff + 6.6, frameOff + 1.1));
+        float n7 = YggHash12(pixelCoord + float2(frameOff + 3.3, frameOff + 7.7));
+        float n8 = YggHash12(pixelCoord + float2(frameOff + 6.6, frameOff + 1.1));
         float gb = (n7 + n8 - 1.0) * GrainStrength * envelope * 0.70;
         result = src + float3(grain + gr, grain + gg, grain + gb);
     }

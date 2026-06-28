@@ -1,8 +1,11 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggDeband — Perceptual Debanding
+//  YggDeband -- Perceptual Debanding
 // =============================================================================
 
 uniform float DebandStrength <
@@ -88,7 +91,7 @@ float4 PS_YggDeband(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (EnableAdaptiveDeband)
     {
-        float sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         float highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -130,40 +133,49 @@ float4 PS_YggDeband(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     float3 accumColor = 0.0.xxx;
     float  hits       = 0.0;
 
-    // Explicitly unrolled 4 iterations — no loops with tex2D (gradient instruction safety)
+    // Unrolled 1-4 iterations -- gated by DebandIterations uniform
+    // No loops with tex2D (gradient instruction safety)
     float FC = float(DebandFrameCount & 0xFF);
     float3 sDB; float2 offDB; float aDB, dDB;
-    // iter 0
+    // iter 0 (always)
     aDB = YggIGN(pixelPos+float2(0.0*73.1+FC*17.3,0.0*37.7))*2.0*YGG_PI;
     dDB = (0.25+YggIGN(pixelPos+float2(0.0*113.9,0.0*59.3+FC*11.7))*0.75)*DebandRange;
     offDB = float2(cos(aDB),sin(aDB))*dDB*px;
     sDB=tex2D(ReShade::BackBuffer,uv+offDB).rgb;
     if(abs(YggLuma(sDB)-srcL)<localThreshL&&abs(YggChroma(sDB)-srcC)<localThreshC){accumColor+=sDB;hits+=1.0;}
+    [branch] if (DebandIterations >= 2) {
     // iter 1
     aDB = YggIGN(pixelPos+float2(1.0*73.1+FC*17.3,1.0*37.7))*2.0*YGG_PI;
     dDB = (0.25+YggIGN(pixelPos+float2(1.0*113.9,1.0*59.3+FC*11.7))*0.75)*DebandRange;
     offDB = float2(cos(aDB),sin(aDB))*dDB*px;
     sDB=tex2D(ReShade::BackBuffer,uv+offDB).rgb;
     if(abs(YggLuma(sDB)-srcL)<localThreshL&&abs(YggChroma(sDB)-srcC)<localThreshC){accumColor+=sDB;hits+=1.0;}
+    }
+    [branch] if (DebandIterations >= 3) {
     // iter 2
     aDB = YggIGN(pixelPos+float2(2.0*73.1+FC*17.3,2.0*37.7))*2.0*YGG_PI;
     dDB = (0.25+YggIGN(pixelPos+float2(2.0*113.9,2.0*59.3+FC*11.7))*0.75)*DebandRange;
     offDB = float2(cos(aDB),sin(aDB))*dDB*px;
     sDB=tex2D(ReShade::BackBuffer,uv+offDB).rgb;
     if(abs(YggLuma(sDB)-srcL)<localThreshL&&abs(YggChroma(sDB)-srcC)<localThreshC){accumColor+=sDB;hits+=1.0;}
+    }
+    [branch] if (DebandIterations >= 4) {
     // iter 3
     aDB = YggIGN(pixelPos+float2(3.0*73.1+FC*17.3,3.0*37.7))*2.0*YGG_PI;
     dDB = (0.25+YggIGN(pixelPos+float2(3.0*113.9,3.0*59.3+FC*11.7))*0.75)*DebandRange;
     offDB = float2(cos(aDB),sin(aDB))*dDB*px;
     sDB=tex2D(ReShade::BackBuffer,uv+offDB).rgb;
     if(abs(YggLuma(sDB)-srcL)<localThreshL&&abs(YggChroma(sDB)-srcC)<localThreshC){accumColor+=sDB;hits+=1.0;}
+    }
 
     float3 result = src;
 
     if (hits > 0.0)
     {
         float3 bandAvg = accumColor / hits;
-        float  blend   = saturate(hits / 4.0) * localStrength * edgeProtect;
+        float  blend   = saturate(hits / float(DebandIterations)) * localStrength * edgeProtect;
+        // Blend capped at 65% of band average -- prevents oversmoothing
+        // even when all iterations hit (hits == DebandIterations, blend == strength)
         result         = lerp(src, bandAvg, blend * 0.65);
     }
 

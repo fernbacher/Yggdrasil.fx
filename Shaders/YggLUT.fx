@@ -3,7 +3,7 @@
 
 // 3D LUT applier. Export a neutral 32x32x32 LUT from ReShade's LUT shader,
 // grade it in any software (Resolve, Photoshop, etc), save as PNG, point here.
-// Near-zero runtime cost — single 3D texture lookup per pixel.
+// Near-zero runtime cost -- single 3D texture lookup per pixel.
 
 #ifndef YGG_LUT_SIZE
     #define YGG_LUT_SIZE 32

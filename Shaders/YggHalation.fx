@@ -1,8 +1,11 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggHalation — Warm Highlight Bleed (Filmic Glow)
+//  YggHalation -- Warm Highlight Bleed (Filmic Glow)
 //
 //  FIX v2: Properly compute bright mask from luma for each neighbor sample.
 //  No more sampling red channel as if it were the mask. Now computes luma
@@ -47,7 +50,7 @@ uniform float ShadowDepth <
     ui_min = 0.0; ui_max = 0.5;
     ui_step = 0.01;
     ui_label = "Shadow Depth";
-    ui_tooltip = "How deep into shadows the glow penetrates. 0 = only pure black, 0.3 = into mid‑shadows.";
+    ui_tooltip = "How deep into shadows the glow penetrates. 0 = only pure black, 0.3 = into mid-shadows.";
 > = 0.18;
 
 uniform bool EnableAdaptiveHalation <
@@ -74,7 +77,7 @@ float4 PS_YggHalation(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     float localStrength = HalationStrength;
     if (EnableAdaptiveHalation)
     {
-        float sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         float highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
         localStrength = YggAdaptiveScalar(localStrength,
@@ -93,7 +96,7 @@ float4 PS_YggHalation(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
 
     // We'll sample the backbuffer at each offset, linearize, compute luma, then bright.
     // To keep it simple and cheap, we sample the sRGB backbuffer and linearize on the fly.
-    // For performance, we could sample the already‑linearized version, but we don't have it.
+    // For performance, we could sample the already-linearized version, but we don't have it.
     // This is still cheap: 9 taps * linearization.
 
     float3 col_off;
@@ -141,7 +144,7 @@ float4 PS_YggHalation(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     bright_off = max(0.0, luma_off - HalationThreshold) / max(1.0 - HalationThreshold, 0.001);
     float bU2 = bright_off;
 
-    // ---- Gaussian‑like 5‑tap blur (weights: 0.1, 0.2, 0.4, 0.2, 0.1) ----
+    // ---- Gaussian-like 5-tap blur (weights: 0.1, 0.2, 0.4, 0.2, 0.1) ----
     float blurH = 0.1 * bL2 + 0.2 * bL1 + 0.4 * brightC + 0.2 * bR1 + 0.1 * bR2;
     float blurV = 0.1 * bU2 + 0.2 * bU1 + 0.4 * brightC + 0.2 * bD1 + 0.1 * bD2;
 
@@ -152,24 +155,25 @@ float4 PS_YggHalation(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     float3 glow = blur * warmColor * localStrength;
 
     // ---- Dark mask: only affect very dark regions ----
-    // ShadowDepth controls the falloff: 0 = only pure black, 0.3 = up to mid‑shadows
+    // ShadowDepth controls the falloff: 0 = only pure black, 0.3 = up to mid-shadows
     float darkMask = 1.0 - smoothstep(0.0, ShadowDepth * 1.5 + 0.05, lumaC);
     // Also ensure we don't add glow to areas that are already bright (safety)
-    darkMask = saturate(min(darkMask, 1.0 - lumaC * 1.5)); // clamp — prevents negative at high luma
+    // Gate: zero out glow on bright pixels (lumaC > 0.67 -> 1.0 - lumaC*1.5 < 0)
+    darkMask = saturate(darkMask * saturate(1.0 - lumaC * 1.5));
 
     glow *= darkMask;
 
     // ---- Composite ----
     float3 result_lin = lin + glow;
 
-    // ---- Re‑encode ----
+    // ---- Re-encode ----
     float3 outColor = YggToSRGB3(saturate(result_lin));
 
     return float4(outColor, 1.0);
 }
 
 technique YggHalation
-    < ui_label   = "YggHalation — Filmic Glow";
+    < ui_label   = "YggHalation -- Filmic Glow";
       ui_tooltip =
         "Warm highlight bleed into deep shadows.\n"
         "Now correctly computes bright mask from luma per sample.\n"

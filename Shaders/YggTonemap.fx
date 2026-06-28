@@ -1,8 +1,11 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggTonemap — AgX-Inspired SDR Tonemapper
+//  YggTonemap -- AgX-Inspired SDR Tonemapper
 // =============================================================================
 
 uniform float Exposure <
@@ -53,11 +56,11 @@ uniform bool SceneAdaptiveExposure <
 
 uniform float AdaptationSpeed <
     ui_type = "drag";
-    ui_min = 0.0; ui_max = 1.0;
+    ui_min = 0.01; ui_max = 0.50;
     ui_step = 0.01;
     ui_label = "Adaptation Speed";
-    ui_tooltip = "How quickly the exposure adapts to scene changes. 0.2 = slow, 0.8 = fast.";
-> = 0.35;
+    ui_tooltip = "Temporal smoothing rate. Lower = slower adaptation (cinematic). Higher = faster.";
+> = 0.10;
 
 uniform bool LumaOnlyTonemap <
     ui_type = "checkbox";
@@ -66,7 +69,14 @@ uniform bool LumaOnlyTonemap <
 > = true;
 
 // =============================================================================
-//  AgX Tone Curve — based on Troy Sobotka's algorithm
+//  TEXTURES
+// =============================================================================
+
+texture2D YggTonemapHistoryTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = RGBA8; };
+sampler2D YggTonemapHistorySampler { Texture = YggTonemapHistoryTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
+// =============================================================================
+//  AgX Tone Curve -- based on Troy Sobotka's algorithm
 //
 //  Unlike Reinhard or simple ACES, AgX maps linear values through a
 //  polynomial that has a natural shoulder and toe, preserving color
@@ -97,7 +107,7 @@ float AgX_Evaluate(float x, float shoulder, float toe, float whitePoint)
     float den = xNorm * (c * xNorm + d) + e;
     float y = num / max(den, eps);
 
-    // Shoulder rolloff — modifies the polynomial response in highlights
+    // Shoulder rolloff -- modifies the polynomial response in highlights
     // Higher shoulder = more aggressive rolloff (softer shoulder)
     if (shoulder > 0.01)
     {
@@ -111,7 +121,7 @@ float AgX_Evaluate(float x, float shoulder, float toe, float whitePoint)
         y = lerp(y, yS, blend * shoulder);
     }
 
-    // Toe lift — dark regions get a gentle lift
+    // Toe lift -- dark regions get a gentle lift
     if (toe > 0.01)
     {
         float toeFactor = toe * 0.6;
@@ -126,28 +136,43 @@ float AgX_Evaluate(float x, float shoulder, float toe, float whitePoint)
 }
 
 // =============================================================================
-//  PIXEL SHADER
+//  PASS 1 -- Compute temporally-smoothed exposure
+//  Reads YggSceneKeySampler, blends with history, writes to history texture.
 // =============================================================================
 
-float4 PS_YggTonemap(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
+float4 PS_TonemapComputeExposure(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
+{
+    float prevExpo = tex2D(YggTonemapHistorySampler, float2(0.5, 0.5)).r;
+
+    float targetExpo = Exposure;
+    if (SceneAdaptiveExposure)
+    {
+        float sceneKey = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
+        float targetLog = log2(0.18);
+        float sceneLog = log2(max(sceneKey, 0.001));
+        float deltaEV = targetLog - sceneLog;
+        targetExpo = Exposure + clamp(deltaEV, -1.5, 1.5);
+    }
+
+    // Temporal lerp -- smooth adaptation toward target
+    // AdaptationSpeed now directly controls the lerp factor per frame
+    float smoothedExpo = lerp(prevExpo, targetExpo, saturate(AdaptationSpeed));
+
+    return float4(smoothedExpo.xxx, 1.0);
+}
+
+// =============================================================================
+//  PASS 2 -- Apply tonemap using smoothed exposure
+// =============================================================================
+
+float4 PS_TonemapApply(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 {
     // Sample and linearize
     float3 src_srgb = tex2D(ReShade::BackBuffer, uv).rgb;
     float3 lin = YggToLinear3(src_srgb);
 
-    // Scene-adaptive exposure
-    float expo = Exposure;
-    if (SceneAdaptiveExposure)
-    {
-        float sceneKey = YggSceneKey9Tap(ReShade::BackBuffer);
-        // Middle gray is 0.18 in linear — if scene key is lower than that, boost exposure
-        float targetLog = log2(0.18);
-        float sceneLog = log2(max(sceneKey, 0.001));
-        float deltaEV = targetLog - sceneLog;
-        // Smoothly blend based on AdaptationSpeed
-        float adapt = deltaEV * AdaptationSpeed * 1.2;
-        expo = Exposure + clamp(adapt, -1.5, 1.5);
-    }
+    // Read smoothed exposure from history texture
+    float expo = tex2D(YggTonemapHistorySampler, float2(0.5, 0.5)).r;
 
     // Apply exposure (2^EV)
     float exposureScale = pow(2.0, expo);
@@ -162,6 +187,9 @@ float4 PS_YggTonemap(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     float luma = YggLuma(contrastAdj);
 
     // Apply AgX tonemap to luminance
+    // Internal range expansion: Toe and Shoulder UI sliders span 0-1 / 0-2,
+    // but the AgX polynomial expects wider input ranges. The scaling factors
+    // below map the user-friendly slider ranges to the polynomial's domain.
     float toeAdjusted = Toe * 1.2;
     float shoulderAdjusted = Shoulder * 1.5;
     float whitePointAdjusted = WhitePoint;
@@ -171,13 +199,13 @@ float4 PS_YggTonemap(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     float3 result;
     if (LumaOnlyTonemap)
     {
-        // Preserve chroma ratio — scale RGB proportionally to new luma
+        // Preserve chroma ratio -- scale RGB proportionally to new luma
         float scale = tonemappedLuma / max(luma, 1e-6);
         result = contrastAdj * scale;
     }
     else
     {
-        // Full RGB tonemap — each channel individually
+        // Full RGB tonemap -- each channel individually
         float3 tonemapped = float3(
             AgX_Evaluate(contrastAdj.r, shoulderAdjusted, toeAdjusted, whitePointAdjusted),
             AgX_Evaluate(contrastAdj.g, shoulderAdjusted, toeAdjusted, whitePointAdjusted),
@@ -196,10 +224,22 @@ float4 PS_YggTonemap(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 }
 
 technique YggTonemap
+    < ui_label   = "YggTonemap -- AgX SDR Tonemapper";
+      ui_tooltip =
+        "AgX-inspired filmic tonemapper with temporal exposure smoothing.\n"
+        "Pass 1 blends scene exposure with previous frame to eliminate pops.\n"
+        "Pass 2 applies the tonemap with shoulder, toe, and contrast controls."; >
 {
-    pass
+    pass ComputeExposure
     {
         VertexShader = PostProcessVS;
-        PixelShader  = PS_YggTonemap;
+        PixelShader  = PS_TonemapComputeExposure;
+        RenderTarget = YggTonemapHistoryTex;
+    }
+
+    pass Apply
+    {
+        VertexShader = PostProcessVS;
+        PixelShader  = PS_TonemapApply;
     }
 }

@@ -2,7 +2,7 @@
 #include "YggCore.fxh"
 
 // =============================================================================
-//  YggLocalMean — Shared Local Mean Texture (Blur Pre-Pass)
+//  YggLocalMean -- Shared Local Mean Texture (Blur Pre-Pass)
 //
 //  Computes a separable blur of the backbuffer and stores it in YggLocalMeanTex.
 //  YggSharp and YggClarity read from this texture instead of doing their own

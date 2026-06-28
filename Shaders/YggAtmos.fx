@@ -1,8 +1,11 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggAtmos — Atmospheric Separation / Dehaze
+//  YggAtmos -- Atmospheric Separation / Dehaze
 // =============================================================================
 
 uniform float AtmosStrength <
@@ -98,7 +101,7 @@ float4 PS_YggAtmos(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (EnableAdaptiveAtmos)
     {
-        float sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         float highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -144,7 +147,7 @@ float4 PS_YggAtmos(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     float highlightGate = 1.0 - YggLinearStep(0.60, 1.00, srcL) * localHighlightRestraint;
 
     // FIX: simplified atmosMask. Old formula had (0.92 + (1-localMask)*0.48) which
-    // created a range of 0.92-1.40 — the >1.0 portion was amplifying the mask
+    // created a range of 0.92-1.40 -- the >1.0 portion was amplifying the mask
     // unpredictably in flat regions. New version: localMask directly gates atmos
     // as a structure gate (high local contrast = not haze = less enhancement).
     float structureGate = saturate(1.0 - localMask * 0.85);

@@ -4,8 +4,11 @@
 texture2D YggLocalMeanTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = RGBA8; };
 sampler2D YggLocalMeanSampler { Texture = YggLocalMeanTex; MinFilter = LINEAR; MagFilter = LINEAR; AddressU = CLAMP; AddressV = CLAMP; };
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggClarity — Mid-Frequency Local Contrast Enhancement
+//  YggClarity -- Mid-Frequency Local Contrast Enhancement
 // =============================================================================
 
 uniform float ClarityStrength <
@@ -77,7 +80,7 @@ float4 PS_YggClarity(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (EnableAdaptiveClarity)
     {
-        float sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         float highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -116,7 +119,7 @@ float4 PS_YggClarity(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
     float highlightGate  = 1.0 - YggLinearStep(0.60, 1.00, srcL) * localHighlightRestraint;
     float shadowGate     = 1.0 + (1.0 - YggLinearStep(0.10, 0.45, srcL)) * localShadowBias;
 
-    // Clarity mask — zero local contrast = zero clarity, no global lift
+    // Clarity mask -- zero local contrast = zero clarity, no global lift
     float clarityMask = smoothstep(0.0, 0.08, localMask);
     float clarityGain = localClarityStrength * edgeGate * highlightGate * shadowGate * clarityMask;
 

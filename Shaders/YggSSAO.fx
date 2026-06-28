@@ -3,7 +3,7 @@
 #include "YggSSAO.fxh"
 
 // =============================================================================
-//  YggSSAO v2.2 — GTAO-inspired SSAO
+//  YggSSAO v2.2 -- GTAO-inspired SSAO
 // =============================================================================
 
 uniform float SSAOStrength <
@@ -84,6 +84,9 @@ sampler2D YggSSAORawSampler  { Texture = YggSSAORawTex;  MinFilter = POINT;  Mag
 texture2D YggSSAOBlurTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
 sampler2D YggSSAOBlurSampler { Texture = YggSSAOBlurTex; MinFilter = LINEAR; MagFilter = LINEAR; AddressU = CLAMP; AddressV = CLAMP; };
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
 //  BILATERAL WEIGHT
 // =============================================================================
@@ -94,20 +97,20 @@ float BW(float cD, float nD)
 }
 
 // =============================================================================
-//  HORIZON SAMPLE — correct depth convention
+//  HORIZON SAMPLE -- correct depth convention
 //
-//  sampleD < centerD means sample is CLOSER (in front) → potential occluder.
-//  diff = sampleD - centerD → negative for occluders.
+//  sampleD < centerD means sample is CLOSER (in front) -> potential occluder.
+//  diff = sampleD - centerD -> negative for occluders.
 //  We want: -SSAOThickness <= diff <= -SSAOBias
 //    Lower bound: not so close that it's the same surface (bias)
 //    Upper bound: not so far in front that it's a different object (thickness)
 // =============================================================================
 
-// SSAO sample — returns occlusion weight [0,1]
+// SSAO sample -- returns occlusion weight [0,1]
 // Uses screen-space pixel distance + depth difference to compute
 // a physically meaningful occlusion angle.
 // Scale factor converts linearized depth delta to screen-space units.
-// Empirically: linearized depth of 0.001 ≈ 1 world unit at typical FOV.
+// Empirically: linearized depth of 0.001 ~= 1 world unit at typical FOV.
 // We use a tunable world scale so the angle math works across games.
 #define SSAO_DEPTH_SCALE 150.0
 
@@ -133,7 +136,7 @@ float HSamp(float2 uv, float2 offset, float centerD)
     // Thickness falloff: full weight near surface, fades toward thickness limit
     float tRange  = max(SSAOThickness - SSAOBias, YGG_SSAO_EPS) * SSAO_DEPTH_SCALE;
     float falloff = saturate(1.0 - (absDiff - SSAOBias * SSAO_DEPTH_SCALE) / tRange);
-    falloff       = falloff * falloff; // quadratic — tighter contact shadows
+    falloff       = falloff * falloff; // quadratic -- tighter contact shadows
 
     // Distance falloff: closer screen-space samples have more influence
     float distFalloff = saturate(1.0 - screenDist / (SSAORadius + YGG_SSAO_EPS));
@@ -142,9 +145,9 @@ float HSamp(float2 uv, float2 offset, float centerD)
 }
 
 // =============================================================================
-//  PASS 1 — COMPUTE AO
-//  4 directions × 3 steps each direction (fwd + bwd = 6 samples/direction)
-//  = 24 total depth samples per pixel. Fully manual — no loops with tex2D.
+//  PASS 1 -- COMPUTE AO
+//  6 directions x 4 rings (fwd + bwd = 8 samples per direction)
+//  = 48 total depth samples per pixel. Fully manual -- no loops with tex2D.
 // =============================================================================
 
 float PS_SSAO_Compute(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -165,7 +168,7 @@ float PS_SSAO_Compute(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     float r2 = SSAORadius * 0.667;
     float r3 = SSAORadius * 1.000;
 
-    // 6 directions — better angular coverage, catches more contact shadow angles
+    // 6 directions -- better angular coverage, catches more contact shadow angles
     // Odd number of directions avoids axis-aligned bias artifacts
     float a0 = baseAngle;
     float a1 = baseAngle + 1.04719755120; // +60deg
@@ -185,7 +188,7 @@ float PS_SSAO_Compute(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     float r4 = SSAORadius * 0.5;
 
     // Normal weighting: surfaces facing the sample direction contribute more
-    // Using max(dot,0) instead of abs — only consider front-facing directions
+    // Using max(dot,0) instead of abs -- only consider front-facing directions
     float nw0 = lerp(1.0, max(dot(float3(d0,0.0), normal), 0.1), SSAONormalStrength);
     float nw1 = lerp(1.0, max(dot(float3(d1,0.0), normal), 0.1), SSAONormalStrength);
     float nw2 = lerp(1.0, max(dot(float3(d2,0.0), normal), 0.1), SSAONormalStrength);
@@ -206,7 +209,7 @@ float PS_SSAO_Compute(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
 }
 
 // =============================================================================
-//  PASS 2 — BILATERAL BLUR HORIZONTAL (5-tap explicit)
+//  PASS 2 -- BILATERAL BLUR HORIZONTAL (5-tap explicit)
 // =============================================================================
 
 float PS_SSAO_BlurH(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -236,7 +239,7 @@ float PS_SSAO_BlurH(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 }
 
 // =============================================================================
-//  PASS 3 — BILATERAL BLUR VERTICAL + COMPOSITE (5-tap explicit)
+//  PASS 3 -- BILATERAL BLUR VERTICAL + COMPOSITE (5-tap explicit)
 // =============================================================================
 
 float4 PS_SSAO_BlurVComposite(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -269,7 +272,7 @@ float4 PS_SSAO_BlurVComposite(float4 pos : SV_Position, float2 uv : TEXCOORD) : 
     // Scene adaptation
     if (SSAOAdaptive)
     {
-        float sk = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sk = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lm = YggLowKeyMask(sk, 0.28, 0.48);
         float hm = YggHighKeyMask(sk, 0.52, 0.75);
         float sc = YggAdaptiveScalar(1.0,
@@ -308,7 +311,7 @@ technique YggSSAO
       ui_tooltip =
         "GTAO-inspired SSAO with correct depth convention handling.\n"
         "Near=dark, far=light depth buffer confirmed.\n"
-        "4 directions x 6 samples = 24 taps. Bilateral blur. No loops with tex2D."; >
+        "6 directions x 8 samples = 48 taps. Bilateral blur. No loops with tex2D."; >
 {
     pass ComputeGTAO    { VertexShader = PostProcessVS; PixelShader = PS_SSAO_Compute;        RenderTarget = YggSSAORawTex;  }
     pass BlurH          { VertexShader = PostProcessVS; PixelShader = PS_SSAO_BlurH;          RenderTarget = YggSSAOBlurTex; }

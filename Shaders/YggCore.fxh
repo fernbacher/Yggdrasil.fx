@@ -35,7 +35,7 @@ float YggSafeDiv(float a, float b)
 }
 
 // FIX: YggLuma must operate on LINEAR light to be physically correct.
-// Callers that pass sRGB values will get approximate results — but that
+// Callers that pass sRGB values will get approximate results -- but that
 // was already true before. The function itself is correct; callers that
 // need accuracy should linearize first (see YggColor).
 float YggLuma(float3 c)
@@ -106,11 +106,11 @@ float YggLumaMask(float luma, float lowStart, float lowEnd, float highStart, flo
 }
 
 // -----------------------------------------------------------------------------
-// sRGB <-> Linear  (IEC 61966-2-1, full piecewise — NOT pow(x,2.2))
+// sRGB <-> Linear  (IEC 61966-2-1, full piecewise -- NOT pow(x,2.2))
 //
 // ADDED: These were missing entirely. All tonal and chroma operations in
 // YggColor now go through these so math is done in linear light.
-// The pow(x,2.2) approximation diverges ~3% below 0.1 — exactly where
+// The pow(x,2.2) approximation diverges ~3% below 0.1 -- exactly where
 // shadow lift, black point, and toe curves operate.
 // -----------------------------------------------------------------------------
 
@@ -139,7 +139,7 @@ float3 YggToSRGB3(float3 c)
 // Oklab  (Ottosson 2020)
 //
 // ADDED: Perceptually uniform colorspace for vibrance/chroma operations.
-// HSV/HSL chroma is hue-dependent — a blue and a yellow at the same HSV
+// HSV/HSL chroma is hue-dependent -- a blue and a yellow at the same HSV
 // chroma value look completely different in saturation. Oklab chroma
 // is perceptually uniform, so vibrance boosts feel consistent across all hues.
 //
@@ -182,7 +182,7 @@ float3 YggOklabToLinear(float3 lab)
 }
 
 // -----------------------------------------------------------------------------
-// Tonal controls  — ALL operate in LINEAR light now
+// Tonal controls  -- ALL operate in LINEAR light now
 // Callers must decode sRGB before calling and re-encode after.
 // -----------------------------------------------------------------------------
 
@@ -218,7 +218,7 @@ float3 YggApplyWhiteBlackPoint(float3 c, float blackPoint, float whitePoint)
 }
 
 // -----------------------------------------------------------------------------
-// Color shaping  — operates in linear light
+// Color shaping  -- operates in linear light
 // -----------------------------------------------------------------------------
 
 float3 YggScaleChroma(float3 c, float amount)
@@ -250,13 +250,13 @@ float YggSaturationWeight(float3 c)
 
 // FIX: YggSmartVibrance rewritten to use Oklab chroma instead of HSV chroma.
 //
-// OLD: used (max-min)/max as the saturation weight. This is HSV saturation —
+// OLD: used (max-min)/max as the saturation weight. This is HSV saturation --
 // hue-dependent and perceptually non-uniform. A blue at HSV-sat 0.4 looks
 // far more saturated than a yellow at HSV-sat 0.4. The vibrance mask was
 // therefore inconsistent across hues, over-boosting some and under-boosting others.
 //
 // NEW: converts to linear first, then Oklab. Computes chroma as length(a,b).
-// This is perceptually uniform — equal numeric chroma = equal perceived saturation
+// This is perceptually uniform -- equal numeric chroma = equal perceived saturation
 // across all hues. Vibrance inverse-weight and ceiling are now hue-agnostic.
 // Output is converted back through Oklab -> linear -> sRGB.
 //
@@ -271,7 +271,7 @@ float3 YggSmartVibrance(float3 c, float vibrance, float protectHighlights,
     float  luma   = lab.x; // Oklab L is perceptual lightness
 
     // Inverse chroma weight: muted colors boosted more than vivid ones
-    // satLimit in Oklab space — 0.15 is moderate, 0.3 is vivid
+    // satLimit in Oklab space -- 0.15 is moderate, 0.3 is vivid
     float unsatMask   = saturate(1.0 - chroma / max(satLimit, YGG_EPS));
 
     // Midtone bias: protect extreme shadows and highlights from vibrance
@@ -398,10 +398,10 @@ float3 YggSampleColor(sampler2D s, float2 uv)
     return tex2D(s, uv).rgb;
 }
 
-// Scene key — 9 sparse taps across the frame
+// Scene key -- 9 sparse taps across the frame
 // NOTE: Each shader that enables scene adaptation calls this independently.
 // This is correct for separate-pass shaders (each reads its own backbuffer state).
-// Cost: 9 taps × number of shaders with adaptation enabled. Acceptable on GTX 1650.
+// Cost: 9 taps x number of shaders with adaptation enabled. Acceptable on GTX 1650.
 float YggSceneKey9Tap(sampler2D s)
 {
     float l = 0.0;

@@ -1,10 +1,9 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
-#include "YggSSAO.fxh"
 #include "YggTemporal.fxh"
 
 // =============================================================================
-//  YggEdgeAA_Temporal — Temporal Anti-Aliasing with Motion Gating
+//  YggEdgeAA_Temporal -- Temporal Anti-Aliasing with Motion Gating
 //  
 //  Pass 1: Render AA to temp texture
 //  Pass 2: Blend with history and store new history
@@ -125,8 +124,11 @@ sampler2D YggTAAFrameSampler { Texture = YggTAAFrameTex; MinFilter = POINT; MagF
 texture2D YggTAAHistoryTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = RGBA8; };
 sampler2D YggTAAHistorySampler { Texture = YggTAAHistoryTex; MinFilter = LINEAR; MagFilter = LINEAR; AddressU = CLAMP; AddressV = CLAMP; };
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // -----------------------------------------------------------------------------
-//  PASS 1 — Edge-Directed AA (current frame)
+//  PASS 1 -- Edge-Directed AA (current frame)
 // -----------------------------------------------------------------------------
 
 float4 PS_TAARender(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -139,7 +141,7 @@ float4 PS_TAARender(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (TAAEnableAdaptive)
     {
-        float sceneKey    = YggSceneKey9Tap(ReShade::BackBuffer);
+        float sceneKey    = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         float lowKeyMask  = YggLowKeyMask(sceneKey, 0.28, 0.45);
         float highKeyMask = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -207,7 +209,7 @@ float4 PS_TAARender(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 }
 
 // -----------------------------------------------------------------------------
-//  PASS 2 — Temporal Accumulation (store history for next frame)
+//  PASS 2 -- Temporal Accumulation (store history for next frame)
 // -----------------------------------------------------------------------------
 
 float4 PS_TAATemporal(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -232,10 +234,10 @@ float4 PS_TAATemporal(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
     float lumaVariation = abs(lumaCenter - lumaNeighborhood) * TAAMotionLumaScale;
     float lumaMotion = saturate(lumaVariation);
 
-    float d00 = YggGetDepth(uv);
-    float d10 = YggGetDepth(uv + float2(px.x, 0.0));
-    float d01 = YggGetDepth(uv + float2(0.0, px.y));
-    float d11 = YggGetDepth(uv + float2(px.x, px.y));
+    float d00 = ReShade::GetLinearizedDepth(uv);
+    float d10 = ReShade::GetLinearizedDepth(uv + float2(px.x, 0.0));
+    float d01 = ReShade::GetLinearizedDepth(uv + float2(0.0, px.y));
+    float d11 = ReShade::GetLinearizedDepth(uv + float2(px.x, px.y));
 
     float depthCenter = d00;
     float depthNeighborhood = (d10 + d01 + d11) / 3.0;
@@ -260,7 +262,7 @@ float4 PS_TAATemporal(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Targe
 }
 
 // -----------------------------------------------------------------------------
-//  PASS 3 — Copy to Backbuffer (with optional Debug overlay)
+//  PASS 3 -- Copy to Backbuffer (with optional Debug overlay)
 // -----------------------------------------------------------------------------
 
 float4 PS_TAACopy(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
@@ -283,10 +285,10 @@ float4 PS_TAACopy(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
         float lumaVariation = abs(lumaCenter - lumaNeighborhood) * TAAMotionLumaScale;
         float lumaMotion = saturate(lumaVariation);
 
-        float d00 = YggGetDepth(uv);
-        float d10 = YggGetDepth(uv + float2(px.x, 0.0));
-        float d01 = YggGetDepth(uv + float2(0.0, px.y));
-        float d11 = YggGetDepth(uv + float2(px.x, px.y));
+        float d00 = ReShade::GetLinearizedDepth(uv);
+        float d10 = ReShade::GetLinearizedDepth(uv + float2(px.x, 0.0));
+        float d01 = ReShade::GetLinearizedDepth(uv + float2(0.0, px.y));
+        float d11 = ReShade::GetLinearizedDepth(uv + float2(px.x, px.y));
 
         float depthCenter = d00;
         float depthNeighborhood = (d10 + d01 + d11) / 3.0;

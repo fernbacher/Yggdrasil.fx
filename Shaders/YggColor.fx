@@ -1,8 +1,11 @@
 #include "ReShade.fxh"
 #include "YggCore.fxh"
 
+texture2D YggSceneKeyTex { Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT; Format = R8; };
+sampler2D YggSceneKeySampler { Texture = YggSceneKeyTex; MinFilter = POINT; MagFilter = POINT; AddressU = CLAMP; AddressV = CLAMP; };
+
 // =============================================================================
-//  YggColor — Perceptual Color Grading with Presets
+//  YggColor -- Perceptual Color Grading with Presets
 // =============================================================================
 
 // -----------------------------------------------------------------------------
@@ -14,7 +17,7 @@ uniform int Preset <
     ui_items = "Custom\0Natural\0Vivid\0FakeHDR\0";
     ui_label = "Preset";
     ui_tooltip = "Quick starting point. Custom = use individual sliders below.";
-> = 0;  // default to Custom — user configures their own grade
+> = 0;  // default to Custom -- user configures their own grade
 
 uniform float Intensity <
     ui_type = "drag";
@@ -236,6 +239,15 @@ uniform float AdaptiveToneStrength <
 
 // -----------------------------------------------------------------------------
 //  PRESET DEFINITIONS (matches YggFakeHDR parameters)
+//  NOTE: When a preset is active, the following parameters are overridden:
+//    contrast, saturation, vibrance, shadowCompression, highlightCompression,
+//    midtoneDensity, highlightProtection, shadowProtection,
+//    brightSatRestraint, highlightGuard.
+//  These parameters remain user/slider-controlled even in preset mode:
+//    HighlightGuardStart, HighlightGuardEnd, HighlightGuardSatInfluence,
+//    BrightSatStart, BrightSatEnd, StylizedContentBias,
+//    VibranceHighlightProtect, VibranceShadowProtect, VibranceSatLimit,
+//    LumaPreservation, Gamma, Brightness, BlackPoint, WhitePoint, RangeSoftness.
 // -----------------------------------------------------------------------------
 
 struct PresetParams
@@ -248,6 +260,8 @@ struct PresetParams
     float midtoneDensity;
     float highlightProtection;
     float shadowProtection;
+    float brightSatRestraint;
+    float highlightGuard;
 };
 
 PresetParams GetPresetParams(int preset)
@@ -262,6 +276,8 @@ PresetParams GetPresetParams(int preset)
     p.midtoneDensity = 0.0;
     p.highlightProtection = 0.0;
     p.shadowProtection = 0.0;
+    p.brightSatRestraint = 0.0;
+    p.highlightGuard = 0.0;
 
     switch (preset)
     {
@@ -274,6 +290,8 @@ PresetParams GetPresetParams(int preset)
             p.midtoneDensity        = 0.06;
             p.highlightProtection   = 0.08;
             p.shadowProtection      = 0.06;
+            p.brightSatRestraint    = 0.06;
+            p.highlightGuard        = 0.08;
             break;
         case 2: // Vivid
             p.contrast              = 1.18;
@@ -284,6 +302,8 @@ PresetParams GetPresetParams(int preset)
             p.midtoneDensity        = 0.18;
             p.highlightProtection   = 0.12;
             p.shadowProtection      = 0.10;
+            p.brightSatRestraint    = 0.10;
+            p.highlightGuard        = 0.12;
             break;
         case 3: // FakeHDR
             p.contrast              = 1.36;
@@ -294,8 +314,10 @@ PresetParams GetPresetParams(int preset)
             p.midtoneDensity        = 0.28;
             p.highlightProtection   = 0.16;
             p.shadowProtection      = 0.14;
+            p.brightSatRestraint    = 0.14;
+            p.highlightGuard        = 0.16;
             break;
-        case 0: // Custom — fall through, keep zeros
+        case 0: // Custom -- fall through, keep zeros
         default:
             break;
     }
@@ -305,9 +327,6 @@ PresetParams GetPresetParams(int preset)
 // -----------------------------------------------------------------------------
 //  PIXEL SHADER
 // -----------------------------------------------------------------------------
-
-texture2D YggColorTex : COLOR;
-sampler2D YggColorSampler { Texture = YggColorTex; };
 
 float3 ApplyAdaptiveToneBias(float3 original, float3 graded, float strength)
 {
@@ -344,7 +363,7 @@ float4 PS_YggColor(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 
     if (EnableSceneAdaptation)
     {
-        sceneKey     = YggSceneKey9Tap(ReShade::BackBuffer);
+        sceneKey     = tex2D(YggSceneKeySampler, float2(0.5, 0.5)).r;
         lowKeyMask   = YggLowKeyMask(sceneKey, 0.28, 0.45);
         highKeyMask  = YggHighKeyMask(sceneKey, 0.55, 0.72);
 
@@ -371,6 +390,8 @@ float4 PS_YggColor(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
         localMidtoneDensity       = presetParams.midtoneDensity;
         localHighlightProtection  = presetParams.highlightProtection;
         localShadowProtection     = presetParams.shadowProtection;
+        localBrightSatRestraint   = presetParams.brightSatRestraint;
+        localHighlightGuard       = presetParams.highlightGuard;
     }
 
     if (StylizedContentBias)
