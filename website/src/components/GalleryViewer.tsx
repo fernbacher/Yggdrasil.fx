@@ -139,14 +139,14 @@ export default function GalleryViewer() {
 
               {/* Bottom image (off) */}
               <img
-                src="/images/comparisons/fifa-off.png"
+                src="/images/comparisons/gowyggoff.png"
                 className="absolute top-0 left-0 w-full h-full object-cover pointer-events-none"
                 alt="Raw engine output"
               />
               {/* Top image (on) — clipped to show comparison */}
               <img
                 ref={imgTopRef}
-                src="/images/comparisons/fifa-on.png"
+                src="/images/comparisons/gowyggon.png"
                 className="absolute top-0 left-0 w-full h-full object-cover pointer-events-none"
                 style={{ clipPath: "inset(0 0 0 50%)" }}
                 alt="Yggdrasil pipeline applied"
