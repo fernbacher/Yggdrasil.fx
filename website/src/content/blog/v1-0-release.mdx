@@ -1,22 +1,32 @@
+---
+title: "Yggdrasil.fx v1.0 — Initial Release"
+date: "2026-06-28"
+excerpt: "The first public release of the Yggdrasil ReShade shader suite. Sixteen shaders, cross-platform support, and a fully documented pipeline."
+---
+
 # Yggdrasil.fx v1.0 — Initial Release
 
 After months of development and testing across Vulkan, D3D9, and Proton, **Yggdrasil.fx v1.0** is now public.
 
 ## What's Included
 
-The suite ships with **12 shaders** covering the full post-processing pipeline:
+The suite ships with **16 shaders** covering the full post-processing pipeline:
 
+- **SceneKey** — Shared scene brightness pre-pass for adaptive shaders
 - **Deband** — Perceptual debanding with randomised angular sampling
 - **EdgeAA Temporal** — Edge-directed temporal anti-aliasing with debug modes
-- **SSAO** — GTAO-inspired ambient occlusion
-- **Color** — Perceptual colour grading in Oklab space
+- **SSAO** — GTAO-inspired ambient occlusion (6 directions x 8 depth reads = 48 taps)
+- **Color** — Perceptual colour grading in Oklab space with presets
+- **WhiteBalance** — Kelvin temperature + green/magenta tint correction
 - **LocalMean** — Shared multi-scale blur pre-pass
 - **Atmos** — Atmospheric separation and dehaze
 - **Clarity** — Mid-frequency local contrast enhancement
 - **Sharp** — Adaptive sharpening with halo suppression
-- **Tonemap** — AgX-inspired SDR display transform
-- **Halation** — Filmic highlight bleed
+- **Tonemap** — AgX-inspired SDR display transform with temporal exposure smoothing
+- **Bloom** — Multi-pass bloom (bright threshold -> gaussian blur -> composite)
+- **Halation** — Filmic highlight bleed into deep shadows
 - **FilmGrain** — Triangular dither with luma-weighted envelope
+- **Vignette** — Radial vignette with adjustable center and softness
 - **LUT** — 3D LUT applier with trilinear interpolation
 
 ## Platform Support
@@ -29,7 +39,7 @@ Tested and verified on:
 
 ## Load Order Matters
 
-Shaders execute sequentially. Follow the [recommended load order](/docs) for correct pipeline behaviour — debanding first, detail shaders in the middle, finish effects last.
+Shaders execute sequentially. Follow the [recommended load order](/docs) for correct pipeline behaviour — SceneKey and debanding first, detail shaders in the middle, finish effects last.
 
 ## What's Next
 
