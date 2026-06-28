@@ -126,7 +126,7 @@ export default function DocsPage() {
             <div className="space-y-8">
               <Faq q="What is Yggdrasil?" a="Yggdrasil is a curated suite of post-processing shaders for ReShade. It adds depth, clarity, colour grading, and atmosphere to games on Linux (via Proton) and Windows (Vulkan/D3D9)." />
               <Faq q="Do I need all shaders enabled?" a="No. The pipeline is modular — enable only the effects you want. The load order table shows the recommended sequence for whatever subset you choose." />
-              <Faq q="Which shader has the highest performance cost?" a="SSAO and EdgeAA Temporal are the most expensive at 35–40%. Disable them if you need extra frames." />
+              <Faq q="Which shader has the highest performance cost?" a="SSAO and EdgeAA Temporal are the most expensive at 35-40%. Bloom is next at 30%. Disable them if you need extra frames." />
               <Faq q="Can I use Yggdrasil with other shader suites?" a="Yes. Place Yggdrasil shaders at the top of your load order (before other suites) to ensure the cleanest input for downstream effects." />
             </div>
           </section>
