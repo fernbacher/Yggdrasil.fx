@@ -17,7 +17,7 @@ const posts: Record<
   "v1-0-release": {
     meta: {
       title: "Yggdrasil.fx v1.0 — Initial Release",
-      date: "2025-06-28",
+      date: "2026-06-28",
       excerpt:
         "The first public release of the Yggdrasil ReShade shader suite. Twelve shaders, cross-platform support, and a fully documented pipeline.",
     },
