@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 
 export const metadata = {
   title: "Download — Yggdrasil.fx",
-  description: "Download the Yggdrasil ReShade shader suite from GitHub Releases. Latest version with all 12 shaders.",
+  description: "Download the Yggdrasil ReShade shader suite from GitHub Releases. Latest version with all 16 shaders.",
 };
 
 export default function DownloadPage() {
