@@ -81,7 +81,7 @@ export const shaders: Shader[] = [
     category: "Depth",
     shortDesc: "GTAO-inspired ambient occlusion — contact shadows with depth-aware thickness gating.",
     longDesc:
-      "SSAO samples the depth buffer in a hemisphere around each pixel, computing horizon angles to estimate ambient occlusion. A thickness-gating function prevents self-occlusion on thin geometry (fences, foliage) while still producing rich contact shadows where surfaces meet.",
+      "SSAO samples the depth buffer in a hemisphere around each pixel (6 directions × 8 depth reads = 48 taps), computing horizon angles to estimate ambient occlusion. A thickness-gating function prevents self-occlusion on thin geometry (fences, foliage) while still producing rich contact shadows where surfaces meet.",
   },
   {
     rune: "ᛋ",
